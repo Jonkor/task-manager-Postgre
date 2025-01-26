@@ -5,13 +5,15 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "type": "commonjs",
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
     "pg": "^8.13.1",
     "pg-hstore": "^2.3.4",
-    "sequelize": "^6.37.5"
+    "sequelize": "^6.37.5",
+    "validator": "^13.12.0"
   },
   "devDependencies": {
     "sequelize-cli": "^6.6.2"
