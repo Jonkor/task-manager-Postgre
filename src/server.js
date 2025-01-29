@@ -1,13 +1,15 @@
 // ESM
 import Fastify from 'fastify'
+import dbConnector from './db/db-connector.js'
 import firstRoute from './routes/our-first-route.js'
+
 /**
  * @type {import('fastify').FastifyInstance} Instance of Fastify
  */
 const fastify = Fastify({
   logger: true
 })
-
+fastify.register(dbConnector)
 fastify.register(firstRoute)
 
 fastify.listen({ port: 3000 }, function (err, address) {
