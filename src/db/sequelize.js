@@ -23,7 +23,7 @@ sequelize.authenticate().then(() => {
 });
 
 const User = sequelize.define(
-   'User',
+   'user',
    {
      // Model attributes are defined here
      id: {
@@ -65,7 +65,7 @@ const User = sequelize.define(
 
         notPassword(value){
           if(value.toLowerCase().includes('password')){
-            throw new Error('Paasword cannont contain password');
+            throw new Error('Password cannont contain password');
           }
         }
       }
@@ -77,7 +77,7 @@ const User = sequelize.define(
  );
 
  const Task = sequelize.define(
-  'Task',
+  'task',
   {
     // Model attributes are defined here
     description: {
