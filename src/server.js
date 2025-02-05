@@ -1,7 +1,7 @@
 // ESM
 import Fastify from 'fastify'
 import dbConnector from './db/db-connector.js'
-import firstRoute from './routes/our-first-route.js'
+import firstRoute from './routes/route.js'
 
 /**
  * @type {import('fastify').FastifyInstance} Instance of Fastify
