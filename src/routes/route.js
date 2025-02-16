@@ -18,7 +18,10 @@ async function routes (fastify, options) {
           'SELECT * FROM users',
         )
         // Note: avoid doing expensive computation here, this will block releasing the client
+        reply.code(200);
         return rows;
+      } catch (error){
+        throw new Error(error);
       } finally {
         // Release the client immediately after query resolves, or upon error
         client.release()
@@ -32,7 +35,10 @@ async function routes (fastify, options) {
             'SELECT * FROM users WHERE id=$1', [req.params.id],
           )
           // Note: avoid doing expensive computation here, this will block releasing the client
+          reply.code(200);
           return rows;
+        } catch (error){
+          throw new Error(error);
         } finally {
           // Release the client immediately after query resolves, or upon error
           client.release()
@@ -51,8 +57,12 @@ async function routes (fastify, options) {
             'INSERT INTO users(ID,NAME,EMAIL,AGE,PASSWORD,"createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *', [id,name,email,age,password,createdAt,updatedAt],
           )
           // Note: avoid doing expensive computation here, this will block releasing the client
+          reply.code(201);
           return rows;
-        } finally {
+        } catch (error){
+          throw new Error(error);
+        }
+        finally {
           // Release the client immediately after query resolves, or upon error
           client.release();
         }
@@ -71,9 +81,10 @@ async function routes (fastify, options) {
         }       
         try {
           const { rows } = await client.query(query);
+          reply.code(204);
           return rows;
-        }catch(e){
-          throw new Error(e);
+        }catch(error){
+          throw new Error(error);
         }finally{
           client.release();
         }
@@ -98,8 +109,11 @@ async function routes (fastify, options) {
           const { rows } = await client.query(
             'SELECT * FROM tasks',
           )
+          reply.code(200);
           return rows; 
-        }finally {
+        } catch (error){
+          throw new Error(error);
+        } finally {
           client.release();
         }
       });
@@ -110,7 +124,10 @@ async function routes (fastify, options) {
           const { rows } = await client.query(
             'SELECT * FROM tasks WHERE id=$1', [req.params.id],
           )
+          reply.code(200);
           return rows;
+        }catch (error){
+          throw new Error(error);          
         }finally{
           client.release();
         }
@@ -125,8 +142,11 @@ async function routes (fastify, options) {
           const { rows } = await client.query(
             'INSERT INTO tasks(ID,DESCRIPTION,COMPLETED,"createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5) RETURNING *', [id,description,completed,createdAt,updatedAt],            
           )
+          reply.code(201);
           return rows;
-        }finally{
+        } catch (error) {
+          throw new Error(error);
+        } finally {
           client.release();
         }
 
@@ -145,6 +165,7 @@ async function routes (fastify, options) {
         }       
         try {
           const { rows } = await client.query(query);
+          reply.code(204);
           return rows;
         }catch(error){
           throw new Error(error);
