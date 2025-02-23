@@ -1,5 +1,7 @@
 // route.js
 
+import { format } from "sequelize/lib/utils";
+
 /**
  * Encapsulates the routes
  * @param {FastifyInstance} fastify  Encapsulated Fastify Instance
@@ -7,11 +9,45 @@
  */
 async function routes (fastify, options) {
 
+    //schema de prueba
+
+
+    const getAllSchema = {
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            id: {type: 'integer'},
+            name: {type: 'string',},
+            email: {type: 'string', format: 'email'},
+            age: {type: 'integer'},
+            createdAt: {type: 'string', format: 'date-time'},
+            updatedAt: {type: 'string', format: 'date-time'}            
+          }
+        }
+      }
+    }
+
+    const postUserSchema = {
+      body: {
+        type: 'object',
+        properties: {
+          id: {type: 'integer',},
+          name: {type: 'string',},
+          email: {type: 'string', format: 'email'},
+          age: {type: 'integer'},
+          createdAt: {type: 'string', format: 'date-time'},
+          updatedAt: {type: 'string', format: 'date-time'}
+        },
+        required: ["id", "name", "email", "age"]
+      }
+    }
+
     fastify.get('/', async (request, reply) => {
       return { hello: 'world' }
     });
 
-    fastify.get('/users/', async (req, reply) => {
+    fastify.get('/users/', getAllSchema, async (req, reply) => {
       const client = await fastify.pg.connect()
       try {
         const { rows } = await client.query(
@@ -28,7 +64,7 @@ async function routes (fastify, options) {
       }
     });
 
-    fastify.get('/users/:id', async (req, reply) => {
+    fastify.get('/users/:id', getAllSchema, async (req, reply) => {
         const client = await fastify.pg.connect();
         try {
           const { rows } = await client.query(
@@ -45,7 +81,7 @@ async function routes (fastify, options) {
         }
       });
 
-      fastify.post('/users/', async (req, reply) => {
+      fastify.post('/users/', postUserSchema, async (req, reply) => {
         const client = await fastify.pg.connect()
         const {id, name, email, age, password} = req.body;
         // const id = uuidv4()
@@ -68,11 +104,22 @@ async function routes (fastify, options) {
         }
       }); 
  
-      fastify.patch('/users/:id', async (req, reply) => {
+      fastify.patch('/users/:id', postUserSchema, async (req, reply) => {
         const client = await fastify.pg.connect();
+
+        const updates = Object.keys(req.body); //array of strings
+        console.log(updates);
+        const allowedUpdates = ["name", "email", "age", "password"]; //fields allowed to update
+        const isValidOperation = updates.every((update) => allowedUpdates.includes(update));
+        
+        if (!isValidOperation) { 
+          return reply.status(400).send({ error: 'Invalid update'});
+        }
+
         const {name, email, age, password} = req.body;
         const createdAt = new Date().toISOString();
         const updatedAt = new Date().toISOString(); 
+
         const query = {
           text: `UPDATE users SET 
           name= COALESCE($1, name), email= COALESCE($2, email), age= COALESCE($3, age), password= COALESCE($4, password), "createdAt"= COALESCE($5, "createdAt"), "updatedAt"= COALESCE($6, "updatedAt") 
@@ -80,6 +127,15 @@ async function routes (fastify, options) {
           values: [name, email, age, password, createdAt, updatedAt, req.params.id]
         }       
         try {
+          const {rowCount}  = await client.query(
+            'SELECT * FROM users WHERE id=$1', [req.params.id],
+          )
+          console.log(rowCount);
+
+          if (rowCount === 0) { //If not record is found
+            return reply.status(404).send({ error: 'User not found'});
+          }
+
           const { rows } = await client.query(query);
           reply.code(204);
           return rows;
