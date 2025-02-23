@@ -149,6 +149,14 @@ async function routes (fastify, options) {
       fastify.delete('/users/:id', async (req, reply) => {
         const client = await fastify.pg.connect();
         try {
+          const {rowCount}  = await client.query(
+            'SELECT * FROM users WHERE id=$1', [req.params.id],
+          )
+
+          if (rowCount === 0) { //If not record is found
+            return reply.status(404).send({ error: 'User not found'});
+          }
+
           const { rows } = await client.query(`DELETE FROM users WHERE id= $1 RETURNING *`, [req.params.id]);
           reply.code(204);
           return reply.send(rows);          
