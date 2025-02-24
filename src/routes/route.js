@@ -1,6 +1,7 @@
 // route.js
 
 import { format } from "sequelize/lib/utils";
+import { getUserSchema, postUserSchema, getTaskSchema, postTaskSchema} from "../schemas/schemas.js";
 
 /**
  * Encapsulates the routes
@@ -8,68 +9,6 @@ import { format } from "sequelize/lib/utils";
  * @param {Object} options plugin options, refer to https://fastify.dev/docs/latest/Reference/Plugins/#plugin-options
  */
 async function routes (fastify, options) {
-
-
-    const getUserSchema = {
-      response: {
-        200: {
-          type: 'array',
-          properties: {
-            id: {type: 'integer'},
-            name: {type: 'string',},
-            email: {type: 'string', format: 'email'},
-            age: {type: 'integer'},
-            createdAt: {type: 'string', format: 'date-time'},
-            updatedAt: {type: 'string', format: 'date-time'}            
-          }
-        }
-      }
-    }
-
-    const postUserSchema = {
-      body: {
-        type: 'object',
-        properties: {
-          id: {type: 'integer',},
-          name: {type: 'string',},
-          email: {type: 'string', format: 'email'},
-          age: {type: 'integer'},
-          createdAt: {type: 'string', format: 'date-time'},
-          updatedAt: {type: 'string', format: 'date-time'}
-        },
-        required: ["id", "name", "email", "age"]
-      }
-    }
-
-    const getTaskSchema = {
-      response: {
-        200: {
-          type: 'array',
-          properties: {
-            id: {type: 'integer',},
-            description: {type: 'string',},
-            completed: {type: 'boolean',},
-            createdAt: {type: 'string', format: 'date-time'},
-            updatedAt: {type: 'string', format: 'date-time'}            
-          }
-        }
-      }
-    }
-
-    const postTaskSchema = {
-      body: {
-        type: 'object',
-        properties: {
-          id: {type: 'integer'},
-          description: {type: 'string',},
-          completed: {type: 'boolean', nullable: true, default: false},
-          createdAt: {type: 'string', format: 'date-time'},
-          updatedAt: {type: 'string', format: 'date-time'}           
-        },
-        required: ["id", "description", "completed"]
-      }
-    }
-
 
     await fastify.register(import('fastify-bcrypt'), {
       saltWorkFactor: 12
