@@ -11,9 +11,6 @@ const fastify = Fastify({
 });
 fastify.register(dbConnector);
 fastify.register(firstRoute);
-// fastify.register(import('fastify-bcrypt'), {
-//   saltWorkFactor: 12
-// });
 
 fastify.listen({ port: 3000 }, function (err, address) {
   if (err) {

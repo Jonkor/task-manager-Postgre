@@ -54,7 +54,7 @@ async function routes (fastify, options) {
       });
       
       fastify.post('/users/', {schema: postUserSchema}, async (req, reply) => {
-        const client = await fastify.pg.connect()
+        const client = await fastify.pg.connect();
         const {id, name, email, age, password} = req.body;
         // const id = uuidv4()       
         const done = false;
@@ -70,13 +70,39 @@ async function routes (fastify, options) {
           return rows;
         } catch (error){
           throw new Error(error);
-        }
-        finally {
+        }finally {
           // Release the client immediately after query resolves, or upon error
           client.release();
         }
       }); 
- 
+      
+      fastify.post('/users/login', async (req, reply) => {
+        const {email, password} = req.body;
+        const client = await fastify.pg.connect();        
+        try {
+          const { rows } = await client.query(
+            `SELECT * FROM users WHERE email=$1`, [email]
+          );
+
+          if (rows.length === 0){
+            return reply.status(400).send({ error: 'User not found' });
+          }
+
+          const user = rows[0];
+          const isMatch = await fastify.bcrypt.compare(password, user.password);
+
+          if (!isMatch) {
+            return reply.status(401).send({ error: 'Invalid credentials' });
+          }
+
+          reply.send({ message: 'Login successful', user });
+        } catch (error) {
+          throw new Error(error);
+        }finally {
+          client.release();
+        }
+      });
+
       fastify.patch('/users/:id',  async (req, reply) => {
         const client = await fastify.pg.connect();
 

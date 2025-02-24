@@ -1,5 +1,4 @@
-const { Sequelize, Model, DataTypes  } = require('sequelize');
-const validator = require('validator');
+import { Sequelize, Model, DataTypes  } from 'sequelize';
 
 // const sequelize = new Sequelize('postgres://user:pass@example.com:5432/dbname')
 
@@ -38,6 +37,7 @@ const User = sequelize.define(
      email: {
        type: DataTypes.STRING,
        allowNull: false,
+       unique: true,
        validate:{
         isEmail: true,
        }
