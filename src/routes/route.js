@@ -1,7 +1,6 @@
 // route.js
 
 import { format } from "sequelize/lib/utils";
-import bcrypt from "bcryptjs";
 
 /**
  * Encapsulates the routes
@@ -9,8 +8,6 @@ import bcrypt from "bcryptjs";
  * @param {Object} options plugin options, refer to https://fastify.dev/docs/latest/Reference/Plugins/#plugin-options
  */
 async function routes (fastify, options) {
-
-    //schema de prueba
 
 
     const getUserSchema = {
@@ -73,6 +70,12 @@ async function routes (fastify, options) {
       }
     }
 
+
+    await fastify.register(import('fastify-bcrypt'), {
+      saltWorkFactor: 12
+    });
+
+
     fastify.get('/', async (request, reply) => {
       return { hello: 'world' }
     });
@@ -110,17 +113,18 @@ async function routes (fastify, options) {
           client.release()
         }
       });
-
+      
       fastify.post('/users/', {schema: postUserSchema}, async (req, reply) => {
         const client = await fastify.pg.connect()
         const {id, name, email, age, password} = req.body;
-        // const id = uuidv4()
+        // const id = uuidv4()       
         const done = false;
+        const hashedPassword = await fastify.bcrypt.hash(password);        
         const createdAt = new Date().toISOString();
         const updatedAt = new Date().toISOString();
         try {
           const { rows } = await client.query(
-            'INSERT INTO users(ID,NAME,EMAIL,AGE,PASSWORD,"createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *', [id,name,email,age,password,createdAt,updatedAt],
+            'INSERT INTO users(ID,NAME,EMAIL,AGE,PASSWORD,"createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *', [id,name,email,age,hashedPassword,createdAt,updatedAt],
           )
           // Note: avoid doing expensive computation here, this will block releasing the client
           reply.code(201);
