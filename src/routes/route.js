@@ -1,6 +1,7 @@
 // route.js
 
 import { format } from "sequelize/lib/utils";
+import bcrypt from "bcryptjs";
 
 /**
  * Encapsulates the routes
@@ -12,10 +13,10 @@ async function routes (fastify, options) {
     //schema de prueba
 
 
-    const getAllSchema = {
+    const getUserSchema = {
       response: {
         200: {
-          type: 'object',
+          type: 'array',
           properties: {
             id: {type: 'integer'},
             name: {type: 'string',},
@@ -43,11 +44,40 @@ async function routes (fastify, options) {
       }
     }
 
+    const getTaskSchema = {
+      response: {
+        200: {
+          type: 'array',
+          properties: {
+            id: {type: 'integer',},
+            description: {type: 'string',},
+            completed: {type: 'boolean',},
+            createdAt: {type: 'string', format: 'date-time'},
+            updatedAt: {type: 'string', format: 'date-time'}            
+          }
+        }
+      }
+    }
+
+    const postTaskSchema = {
+      body: {
+        type: 'object',
+        properties: {
+          id: {type: 'integer'},
+          description: {type: 'string',},
+          completed: {type: 'boolean', nullable: true, default: false},
+          createdAt: {type: 'string', format: 'date-time'},
+          updatedAt: {type: 'string', format: 'date-time'}           
+        },
+        required: ["id", "description", "completed"]
+      }
+    }
+
     fastify.get('/', async (request, reply) => {
       return { hello: 'world' }
     });
 
-    fastify.get('/users/', getAllSchema, async (req, reply) => {
+    fastify.get('/users/', {schema: getUserSchema}, async (req, reply) => {
       const client = await fastify.pg.connect()
       try {
         const { rows } = await client.query(
@@ -64,7 +94,7 @@ async function routes (fastify, options) {
       }
     });
 
-    fastify.get('/users/:id', getAllSchema, async (req, reply) => {
+    fastify.get('/users/:id', {schema: getUserSchema}, async (req, reply) => {
         const client = await fastify.pg.connect();
         try {
           const { rows } = await client.query(
@@ -81,7 +111,7 @@ async function routes (fastify, options) {
         }
       });
 
-      fastify.post('/users/', postUserSchema, async (req, reply) => {
+      fastify.post('/users/', {schema: postUserSchema}, async (req, reply) => {
         const client = await fastify.pg.connect()
         const {id, name, email, age, password} = req.body;
         // const id = uuidv4()
@@ -104,11 +134,10 @@ async function routes (fastify, options) {
         }
       }); 
  
-      fastify.patch('/users/:id', postUserSchema, async (req, reply) => {
+      fastify.patch('/users/:id',  async (req, reply) => {
         const client = await fastify.pg.connect();
 
         const updates = Object.keys(req.body); //array of strings
-        console.log(updates);
         const allowedUpdates = ["name", "email", "age", "password"]; //fields allowed to update
         const isValidOperation = updates.every((update) => allowedUpdates.includes(update));
         
@@ -159,7 +188,7 @@ async function routes (fastify, options) {
 
           const { rows } = await client.query(`DELETE FROM users WHERE id= $1 RETURNING *`, [req.params.id]);
           reply.code(204);
-          return reply.send(rows);          
+          return rows;          
         } catch (error) {
           throw new Error(error);
         }finally {
@@ -167,7 +196,7 @@ async function routes (fastify, options) {
         }
       });
 
-      fastify.get('/tasks/', async (req, reply) => {
+      fastify.get('/tasks/', {schema: getTaskSchema}, async (req, reply) => {
         const client = await fastify.pg.connect();
         try{
           const { rows } = await client.query(
@@ -182,7 +211,7 @@ async function routes (fastify, options) {
         }
       });
 
-      fastify.get('/tasks/:id', async (req, reply) => {
+      fastify.get('/tasks/:id', {schema: getTaskSchema}, async (req, reply) => {
         const client = await fastify.pg.connect();
         try{
           const { rows } = await client.query(
@@ -197,7 +226,7 @@ async function routes (fastify, options) {
         }
       });
 
-      fastify.post('/tasks/', async (req, reply) => {
+      fastify.post('/tasks/', {schema: postTaskSchema}, async (req, reply) => {
         const client = await fastify.pg.connect();
         const {id, description, completed} = req.body;
         const createdAt = new Date().toISOString();
@@ -218,6 +247,15 @@ async function routes (fastify, options) {
 
       fastify.patch('/tasks/:id', async (req, reply) => {
         const client = await fastify.pg.connect();
+
+        const updates = Object.keys(req.body); //array of strings
+        const allowedUpdates = ["description", "completed"]; //fields allowed to update
+        const isValidOperation = updates.every((update) => allowedUpdates.includes(update));
+        
+        if (!isValidOperation) { 
+          return reply.status(400).send({ error: 'Invalid update'});
+        }
+
         const {description, completed} = req.body;
         const createdAt = new Date().toISOString();
         const updatedAt = new Date().toISOString(); 
@@ -228,6 +266,14 @@ async function routes (fastify, options) {
           values: [description, completed, createdAt, updatedAt, req.params.id]
         }       
         try {
+          const {rowCount}  = await client.query(
+            'SELECT * FROM tasks WHERE id=$1', [req.params.id],
+          )
+
+          if (rowCount === 0) { //If not record is found
+            return reply.status(404).send({ error: 'Task not found'});
+          }
+
           const { rows } = await client.query(query);
           reply.code(204);
           return rows;
@@ -241,9 +287,16 @@ async function routes (fastify, options) {
       fastify.delete('/tasks/:id', async (req, reply) => {
         const client = await fastify.pg.connect();
         try {
+          const {rowCount}  = await client.query(
+            'SELECT * FROM tasks WHERE id=$1', [req.params.id],
+          )
+
+          if (rowCount === 0) { //If not record is found
+            return reply.status(404).send({ error: 'Task not found'});
+          }          
           const { rows } = await client.query(`DELETE FROM tasks WHERE id= $1 RETURNING *`, [req.params.id]);
           reply.code(204);
-          return reply(rows);
+          return rows;
         } catch (error) {
           throw new Error(error);
         } finally {
