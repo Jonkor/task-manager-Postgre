@@ -64,9 +64,13 @@ async function routes (fastify, options) {
         const hashedPassword = await fastify.bcrypt.hash(password);        
         const createdAt = new Date().toISOString();
         const updatedAt = new Date().toISOString();
+
+        const token = await fastify.jwt.sign({id: id.toString()}, 'wowsosecret'); //generates json web token
+        let userTokens = [{token}]; //assigns token to users tokens string array
+
         try {
           const { rows } = await client.query(
-            'INSERT INTO users(ID,NAME,EMAIL,AGE,PASSWORD,"createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *', [id,name,email,age,hashedPassword,createdAt,updatedAt],
+            'INSERT INTO users(ID,NAME,EMAIL,AGE,PASSWORD,TOKENS,"createdAt","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *', [id,name,email,age,hashedPassword,userTokens,createdAt,updatedAt],
           )
           // Note: avoid doing expensive computation here, this will block releasing the client
           reply.code(201);
