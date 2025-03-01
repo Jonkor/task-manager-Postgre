@@ -1,7 +1,7 @@
 // route.js
 
 import { format } from "sequelize/lib/utils";
-import { getUserSchema, postUserSchema, getTaskSchema, postTaskSchema} from "../schemas/schemas.js";
+import { getUserSchema, postUserSchema, loginUserSchema, getTaskSchema, postTaskSchema} from "../schemas/schemas.js";
 
 /**
  * Encapsulates the routes
@@ -10,10 +10,13 @@ import { getUserSchema, postUserSchema, getTaskSchema, postTaskSchema} from "../
  */
 async function routes (fastify, options) {
 
-    await fastify.register(import('fastify-bcrypt'), {
+    await fastify.register(import('fastify-bcrypt'), { //loads plugin bycrypt hashing password
       saltWorkFactor: 12
     });
 
+    await fastify.register(import('@fastify/jwt'), { //loads plugin jwt
+      secret: 'wowsosecret'
+    });
 
     fastify.get('/', async (request, reply) => {
       return { hello: 'world' }
@@ -76,7 +79,7 @@ async function routes (fastify, options) {
         }
       }); 
       
-      fastify.post('/users/login', async (req, reply) => {
+      fastify.post('/users/login', loginUserSchema, async (req, reply) => {
         const {email, password} = req.body;
         const client = await fastify.pg.connect();        
         try {
@@ -95,7 +98,21 @@ async function routes (fastify, options) {
             return reply.status(401).send({ error: 'Invalid credentials' });
           }
 
-          reply.send({ message: 'Login successful', user });
+          const token = await fastify.jwt.sign({id: user.id.toString()}, 'wowsosecret'); //generates json web token
+          
+          user.tokens = user.tokens.concat({token});//assigns token to users tokens string array
+          const updatedAt = new Date().toISOString();  
+
+          const query = {
+            text: `UPDATE users SET
+            tokens= COALESCE($1, tokens), "updatedAt"= COALESCE($2, "updatedAt")
+            WHERE id=$3 RETURNING *`,
+            values: [user.tokens, updatedAt, user.id]
+          }
+
+          const { rowUpdate } = await client.query(query);
+          await reply.send({ message: 'Login successful', user, token });
+          return rowUpdate;
         } catch (error) {
           throw new Error(error);
         }finally {
@@ -128,7 +145,6 @@ async function routes (fastify, options) {
           const {rowCount}  = await client.query(
             'SELECT * FROM users WHERE id=$1', [req.params.id],
           )
-          console.log(rowCount);
 
           if (rowCount === 0) { //If not record is found
             return reply.status(404).send({ error: 'User not found'});
@@ -276,4 +292,3 @@ async function routes (fastify, options) {
   
   //ESM
   export default routes;
-  

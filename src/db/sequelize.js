@@ -69,7 +69,12 @@ const User = sequelize.define(
           }
         }
       }
-     }
+     },
+     tokens: {
+      type: DataTypes.ARRAY(DataTypes.JSONB),
+      allowNull: false,
+      defaultValue: []
+     },
    },
    {
      // Other model options go here

@@ -29,6 +29,17 @@ export const postUserSchema = {
     }
   }
 
+export const loginUserSchema = {
+    body: {
+        type: 'object',
+        properties: {
+            email: {type: 'string', format: 'email'},
+            password: {type: 'string'} 
+        },
+        required: ["email", "password"]
+    }
+}
+
 export const getTaskSchema = {
     response: {
       200: {
