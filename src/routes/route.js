@@ -18,11 +18,19 @@ async function routes (fastify, options) {
       secret: 'wowsosecret'
     });
 
+    await fastify.decorate("authenticate", async function(request, reply) { //using fastify auth plugin to protect the routes 
+      try {        
+        await request.jwtVerify();
+      } catch (err) {
+        reply.send(err);
+      }
+    })
+
     fastify.get('/', async (request, reply) => {
       return { hello: 'world' }
     });
 
-    fastify.get('/users/', {schema: getUserSchema}, async (req, reply) => {
+    await fastify.get('/users/', {schema: getUserSchema, onRequest: [fastify.authenticate]}, async (req, reply) => { //onRequest used to protect route
       const client = await fastify.pg.connect()
       try {
         const { rows } = await client.query(
