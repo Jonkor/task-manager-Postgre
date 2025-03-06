@@ -73,7 +73,7 @@ async function routes (fastify, options) {
         const createdAt = new Date().toISOString();
         const updatedAt = new Date().toISOString();
 
-        const token = await fastify.jwt.sign({id: id.toString()}, 'wowsosecret'); //generates json web token
+        const token = await fastify.jwt.sign({id: id.toString()}, 'wowsosecret', {expiresIn: '1d'}); //generates json web token
         let userTokens = [{token}]; //assigns token to users tokens string array
 
         try {
@@ -110,7 +110,7 @@ async function routes (fastify, options) {
             return reply.status(401).send({ error: 'Invalid credentials' });
           }
 
-          const token = await fastify.jwt.sign({id: user.id.toString()}, 'wowsosecret'); //generates json web token
+          const token = await fastify.jwt.sign({id: user.id.toString()}, 'wowsosecret', {expiresIn: '1d'}); //generates json web token
           
           user.tokens = user.tokens.concat({token});//assigns token to users tokens string array
           const updatedAt = new Date().toISOString();  
