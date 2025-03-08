@@ -19,8 +19,16 @@ async function routes (fastify, options) {
     });
 
     await fastify.decorate("authenticate", async function(request, reply) { //using fastify auth plugin to protect the routes 
-      try {        
-        await request.jwtVerify();
+      try {
+        // const token = request.raw.rawHeaders.filter((header) => header.includes('Bearer'));// filter to see if contains Bearer header       
+        // const decoded = await request.jwtVerify(token); // gets the id of the row related to the token
+
+        // if (!decoded) {
+        //   throw new Error('No token found')
+        // }
+
+        // return request.user.id=decoded.id; // assigns to and returns the request petition the id of the row        
+        //await request.jwtVerify();
       } catch (err) {
         reply.send(err);
       }
@@ -30,12 +38,12 @@ async function routes (fastify, options) {
       return { hello: 'world' }
     });
 
-    await fastify.get('/users/', {schema: getUserSchema, onRequest: [fastify.authenticate]}, async (req, reply) => { //onRequest used to protect route
-      const client = await fastify.pg.connect()
+    await fastify.get('/users/me', {schema: getUserSchema, onRequest: [fastify.authenticate]}, async (req, reply) => { //onRequest used to protect route
+      const client = await fastify.pg.connect();
       try {
-        const { rows } = await client.query(
-          'SELECT * FROM users',
-        )
+        // const { rows } = await client.query(
+        //   'SELECT * FROM users WHERE id=$1', [req.user.id]
+        // )
         // Note: avoid doing expensive computation here, this will block releasing the client
         reply.code(200);
         return rows;
@@ -73,12 +81,13 @@ async function routes (fastify, options) {
         const createdAt = new Date().toISOString();
         const updatedAt = new Date().toISOString();
 
-        const token = await fastify.jwt.sign({id: id.toString()}, 'wowsosecret', {expiresIn: '1d'}); //generates json web token
-        let userTokens = [{token}]; //assigns token to users tokens string array
+        const token = await fastify.jwt.sign({id: id.toString()}, 'wowsosecret', {expiresIn: '1d'}); //generates json web token string
+        // let userTokens = [{token}]; //assigns token to users tokens string array
+        const objectToken = {token}; //assigns token string as a object for Tokens JsonB field
 
         try {
           const { rows } = await client.query(
-            'INSERT INTO users(ID,NAME,EMAIL,AGE,PASSWORD,TOKENS,"createdAt","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *', [id,name,email,age,hashedPassword,userTokens,createdAt,updatedAt],
+            'INSERT INTO users(ID,NAME,EMAIL,AGE,PASSWORD,TOKENS,"createdAt","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *', [id,name,email,age,hashedPassword,objectToken,createdAt,updatedAt],
           )
           // Note: avoid doing expensive computation here, this will block releasing the client
           reply.code(201);
@@ -112,7 +121,12 @@ async function routes (fastify, options) {
 
           const token = await fastify.jwt.sign({id: user.id.toString()}, 'wowsosecret', {expiresIn: '1d'}); //generates json web token
           
-          user.tokens = user.tokens.concat({token});//assigns token to users tokens string array
+          // user.tokens = user.tokens.concat({token});//assigns token to users tokens string array
+          
+          user.tokens['token'+(Object.keys(user.tokens).length+1).toString()] = token; //generates dynamic keys based on the tokens we have and then we store the value token
+
+          // user.tokens['token'] = token; //updates the token
+          
           const updatedAt = new Date().toISOString();  
 
           const query = {
