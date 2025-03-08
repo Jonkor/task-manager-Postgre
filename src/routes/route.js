@@ -20,14 +20,14 @@ async function routes (fastify, options) {
 
     await fastify.decorate("authenticate", async function(request, reply) { //using fastify auth plugin to protect the routes 
       try {
-        // const token = request.raw.rawHeaders.filter((header) => header.includes('Bearer'));// filter to see if contains Bearer header       
-        // const decoded = await request.jwtVerify(token); // gets the id of the row related to the token
+        const token = request.raw.rawHeaders.filter((header) => header.includes('Bearer'));// filter to see if contains Bearer header       
+        const decoded = await request.jwtVerify(token); // gets the id of the row related to the token
 
-        // if (!decoded) {
-        //   throw new Error('No token found')
-        // }
+        if (!decoded) {
+          throw new Error('No token found')
+        }
 
-        // return request.user.id=decoded.id; // assigns to and returns the request petition the id of the row        
+        return request.user.id=decoded.id; // assigns to and returns the request petition the id of the row        
         //await request.jwtVerify();
       } catch (err) {
         reply.send(err);
@@ -41,9 +41,9 @@ async function routes (fastify, options) {
     await fastify.get('/users/me', {schema: getUserSchema, onRequest: [fastify.authenticate]}, async (req, reply) => { //onRequest used to protect route
       const client = await fastify.pg.connect();
       try {
-        // const { rows } = await client.query(
-        //   'SELECT * FROM users WHERE id=$1', [req.user.id]
-        // )
+        const { rows } = await client.query(
+          'SELECT * FROM users WHERE id=$1', [req.user.id]
+        )
         // Note: avoid doing expensive computation here, this will block releasing the client
         reply.code(200);
         return rows;
