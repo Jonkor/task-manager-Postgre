@@ -190,13 +190,12 @@ async function routes (fastify, options) {
       await fastify.post('/users/logout', {onRequest: [fastify.authenticate]}, async (req, reply) => {
         const client = await fastify.pg.connect();
         try {
-          req.user.tokens = req.user.token.filter((token) => {
-            return token.token !== req.token;
-          });
+          // req.user.tokens = req.user.token.filter((token) => {
+          //   return token.token !== req.token;
+          // });
           console.log(req.user.token);
           
           const userId = req.user.id;
-          // const token = req.user.token;
           const token = req.user.token[0].replace(/^Bearer\s+/i, "").trim();  
           console.log("Empieza");
           
@@ -215,6 +214,28 @@ async function routes (fastify, options) {
 
           req.user.token = null;
           reply.send({ message: 'Logged out successfully' });
+          return rows;
+        } catch (error) {
+          throw new Error(error);
+        } finally {
+          client.release();
+        }
+      });
+
+      await fastify.post('/users/logoutAll', {onRequest: [fastify.authenticate]}, async (req, reply) => {
+        const client = await fastify.pg.connect();
+        try{
+          const userId = req.user.id;
+
+          const rows = await client.query( // set empty jsonb object, removing all tokens from the user
+            `UPDATE users 
+            SET tokens = '{}'::jsonb
+            WHERE id = $1`,
+            [userId]
+          );          
+          req.user.token = null;
+          req.user.token = null;        
+          reply.send({ message: 'Logged out all sessions successfully' });
           return rows;
         } catch (error) {
           throw new Error(error);
