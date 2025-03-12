@@ -18,19 +18,60 @@ async function routes (fastify, options) {
       secret: 'wowsosecret'
     });
 
-    await fastify.decorate("authenticate", async function(request, reply) { //using fastify auth plugin to protect the routes 
+    await fastify.decorate("authenticate", async function(request, reply) { //using fastify auth plugin to protect the routes
+      const client = await fastify.pg.connect(); 
       try {
         const token = request.raw.rawHeaders.filter((header) => header.includes('Bearer'));// filter to see if contains Bearer header       
         const decoded = await request.jwtVerify(token); // gets the id of the row related to the token
-
+        console.log(token);
+        
         if (!decoded) {
           throw new Error('No token found')
         }
+        const tokenString = token[0].replace(/^Bearer\s+/i, "").trim(); //removes bearer so only the string is left
+        
+        console.log(tokenString);
+        
+        const { rows } = await client.query( //this get all tokens from user and search if both id and jwt exists
+          `SELECT * FROM users 
+          WHERE EXISTS (SELECT 1 FROM jsonb_each_text(tokens) AS token(key, value) WHERE value=$1)
+          AND id=$2`, [tokenString, request.user.id]
+        )
 
-        return request.user.id=decoded.id; // assigns to and returns the request petition the id of the row        
+        // const { rows } = await client.query( //this get all tokens from user
+        //   `SELECT * FROM users 
+        //   WHERE EXISTS (SELECT 1 FROM jsonb_each_text(tokens) AS token(key, value) 
+        //   WHERE value=$1)`, [tokenString]
+        // )
+
+        // const exist = Object.entries(rows[0].tokens).forEach((key, value) => {
+        //   if (value === tokenString){
+        //     return true;
+        //   }
+        // }) 
+        console.log(rows[0]);
+        // console.log(exist);
+        
+        if (rows.length === 0) { // if not record exists either id or token was not found in db
+          throw new Error('No token found, please login');
+        }
+       
+        console.log(rows[0].tokens);
+        
+        request.user.token = token;
+        // console.log(request.user);
+               
+        request.user.id = decoded.id; // assigns to and returns the request petition the id of the row
+        // console.log(request.user);
+
+        request.user.tokens = rows[0].tokens;
+        // console.log(request.user);
+        return request.user;        
         //await request.jwtVerify();
       } catch (err) {
         reply.send(err);
+      } finally {
+        client.release();
       }
     })
 
@@ -51,11 +92,11 @@ async function routes (fastify, options) {
         throw new Error(error);
       } finally {
         // Release the client immediately after query resolves, or upon error
-        client.release()
+        client.release();
       }
     });
 
-    fastify.get('/users/:id', {schema: getUserSchema}, async (req, reply) => {
+    await fastify.get('/users/:id', {schema: getUserSchema}, async (req, reply) => {
         const client = await fastify.pg.connect();
         try {
           const { rows } = await client.query(
@@ -68,11 +109,11 @@ async function routes (fastify, options) {
           throw new Error(error);
         } finally {
           // Release the client immediately after query resolves, or upon error
-          client.release()
+          client.release();
         }
       });
       
-      fastify.post('/users/', {schema: postUserSchema}, async (req, reply) => {
+      await fastify.post('/users/', {schema: postUserSchema}, async (req, reply) => {
         const client = await fastify.pg.connect();
         const {id, name, email, age, password} = req.body;
         // const id = uuidv4()       
@@ -100,7 +141,7 @@ async function routes (fastify, options) {
         }
       }); 
       
-      fastify.post('/users/login', loginUserSchema, async (req, reply) => {
+      await fastify.post('/users/login', loginUserSchema, async (req, reply) => {
         const {email, password} = req.body;
         const client = await fastify.pg.connect();        
         try {
@@ -141,12 +182,48 @@ async function routes (fastify, options) {
           return rowUpdate;
         } catch (error) {
           throw new Error(error);
-        }finally {
+        } finally {
           client.release();
         }
       });
 
-      fastify.patch('/users/:id',  async (req, reply) => {
+      await fastify.post('/users/logout', {onRequest: [fastify.authenticate]}, async (req, reply) => {
+        const client = await fastify.pg.connect();
+        try {
+          req.user.tokens = req.user.token.filter((token) => {
+            return token.token !== req.token;
+          });
+          console.log(req.user.token);
+          
+          const userId = req.user.id;
+          // const token = req.user.token;
+          const token = req.user.token[0].replace(/^Bearer\s+/i, "").trim();  
+          console.log("Empieza");
+          
+          console.log(userId);
+          console.log(token);
+          
+          const rows = await client.query(
+            `UPDATE users 
+            SET tokens = tokens - (
+            SELECT key FROM jsonb_each_text(tokens) 
+            WHERE value = $1
+            ) 
+            WHERE id = $2`,
+            [token, userId]
+          );
+
+          req.user.token = null;
+          reply.send({ message: 'Logged out successfully' });
+          return rows;
+        } catch (error) {
+          throw new Error(error);
+        } finally {
+          client.release();
+        }
+      });
+
+      await fastify.patch('/users/:id',  async (req, reply) => {
         const client = await fastify.pg.connect();
 
         const updates = Object.keys(req.body); //array of strings
