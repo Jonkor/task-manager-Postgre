@@ -23,15 +23,12 @@ async function routes (fastify, options) {
       try {
         const token = request.raw.rawHeaders.filter((header) => header.includes('Bearer'));// filter to see if contains Bearer header       
         const decoded = await request.jwtVerify(token); // gets the id of the row related to the token
-        console.log(token);
         
         if (!decoded) {
           throw new Error('No token found')
         }
         const tokenString = token[0].replace(/^Bearer\s+/i, "").trim(); //removes bearer so only the string is left
-        
-        console.log(tokenString);
-        
+                
         const { rows } = await client.query( //this get all tokens from user and search if both id and jwt exists
           `SELECT * FROM users 
           WHERE EXISTS (SELECT 1 FROM jsonb_each_text(tokens) AS token(key, value) WHERE value=$1)
@@ -49,23 +46,21 @@ async function routes (fastify, options) {
         //     return true;
         //   }
         // }) 
-        console.log(rows[0]);
+        // console.log(rows[0]);
         // console.log(exist);
         
         if (rows.length === 0) { // if not record exists either id or token was not found in db
           throw new Error('No token found, please login');
         }
        
-        console.log(rows[0].tokens);
+        // console.log(rows[0].tokens);
         
         request.user.token = token;
-        // console.log(request.user);
                
         request.user.id = decoded.id; // assigns to and returns the request petition the id of the row
-        // console.log(request.user);
 
         request.user.tokens = rows[0].tokens;
-        // console.log(request.user);
+        
         return request.user;        
         //await request.jwtVerify();
       } catch (err) {
@@ -83,7 +78,7 @@ async function routes (fastify, options) {
       const client = await fastify.pg.connect();
       try {
         const { rows } = await client.query(
-          'SELECT * FROM users WHERE id=$1', [req.user.id]
+          'SELECT name,email,age FROM users WHERE id=$1', [req.user.id]
         )
         // Note: avoid doing expensive computation here, this will block releasing the client
         reply.code(200);
@@ -128,9 +123,9 @@ async function routes (fastify, options) {
 
         try {
           const { rows } = await client.query(
-            'INSERT INTO users(ID,NAME,EMAIL,AGE,PASSWORD,TOKENS,"createdAt","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *', [id,name,email,age,hashedPassword,objectToken,createdAt,updatedAt],
+            'INSERT INTO users(ID,NAME,EMAIL,AGE,PASSWORD,TOKENS,"createdAt","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING ID, NAME, EMAIL, AGE', [id,name,email,age,hashedPassword,objectToken,createdAt,updatedAt],
           )
-          // Note: avoid doing expensive computation here, this will block releasing the client
+          // Note: avoid doing expensive computation here, this will block releasing the client                    
           reply.code(201);
           return rows;
         } catch (error){
@@ -190,17 +185,10 @@ async function routes (fastify, options) {
       await fastify.post('/users/logout', {onRequest: [fastify.authenticate]}, async (req, reply) => {
         const client = await fastify.pg.connect();
         try {
-          // req.user.tokens = req.user.token.filter((token) => {
-          //   return token.token !== req.token;
-          // });
           console.log(req.user.token);
           
           const userId = req.user.id;
           const token = req.user.token[0].replace(/^Bearer\s+/i, "").trim();  
-          console.log("Empieza");
-          
-          console.log(userId);
-          console.log(token);
           
           const rows = await client.query(
             `UPDATE users 
@@ -266,7 +254,7 @@ async function routes (fastify, options) {
           values: [name, email, age, password, createdAt, updatedAt, req.params.id]
         }       
         try {
-          const {rowCount}  = await client.query(
+          const {rowCount}  = await client.query( //query to check if user exists
             'SELECT * FROM users WHERE id=$1', [req.params.id],
           )
 
@@ -287,7 +275,7 @@ async function routes (fastify, options) {
       fastify.delete('/users/:id', async (req, reply) => {
         const client = await fastify.pg.connect();
         try {
-          const {rowCount}  = await client.query(
+          const {rowCount}  = await client.query( //query to check if user exists
             'SELECT * FROM users WHERE id=$1', [req.params.id],
           )
 
