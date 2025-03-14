@@ -55,11 +55,11 @@ async function routes (fastify, options) {
        
         // console.log(rows[0].tokens);
         
-        request.user.token = token;
+        request.user.token = token; //asigns user token to the request
                
         request.user.id = decoded.id; // assigns to and returns the request petition the id of the row
 
-        request.user.tokens = rows[0].tokens;
+        request.user.tokens = rows[0].tokens; //asigns user tokenn to the request
         
         return request.user;        
         //await request.jwtVerify();
@@ -91,29 +91,12 @@ async function routes (fastify, options) {
       }
     });
 
-    await fastify.get('/users/:id', {schema: getUserSchema}, async (req, reply) => {
-        const client = await fastify.pg.connect();
-        try {
-          const { rows } = await client.query(
-            'SELECT * FROM users WHERE id=$1', [req.params.id],
-          )
-          // Note: avoid doing expensive computation here, this will block releasing the client
-          reply.code(200);
-          return rows;
-        } catch (error){
-          throw new Error(error);
-        } finally {
-          // Release the client immediately after query resolves, or upon error
-          client.release();
-        }
-      });
-      
       await fastify.post('/users/', {schema: postUserSchema}, async (req, reply) => {
         const client = await fastify.pg.connect();
         const {id, name, email, age, password} = req.body;
         // const id = uuidv4()       
         const done = false;
-        const hashedPassword = await fastify.bcrypt.hash(password);        
+        const hashedPassword = await fastify.bcrypt.hash(password); //hash password       
         const createdAt = new Date().toISOString();
         const updatedAt = new Date().toISOString();
 
@@ -232,7 +215,7 @@ async function routes (fastify, options) {
         }
       });
 
-      await fastify.patch('/users/:id',  async (req, reply) => {
+      await fastify.patch('/users/me', {onRequest: [fastify.authenticate]}, async (req, reply) => {
         const client = await fastify.pg.connect();
 
         const updates = Object.keys(req.body); //array of strings
@@ -242,8 +225,9 @@ async function routes (fastify, options) {
         if (!isValidOperation) { 
           return reply.status(400).send({ error: 'Invalid update'});
         }
-
+        
         const {name, email, age, password} = req.body;
+        const hashedPassword = await fastify.bcrypt.hash(password); //hash password 
         const createdAt = new Date().toISOString();
         const updatedAt = new Date().toISOString(); 
 
@@ -251,17 +235,9 @@ async function routes (fastify, options) {
           text: `UPDATE users SET 
           name= COALESCE($1, name), email= COALESCE($2, email), age= COALESCE($3, age), password= COALESCE($4, password), "createdAt"= COALESCE($5, "createdAt"), "updatedAt"= COALESCE($6, "updatedAt") 
           WHERE id=$7 RETURNING *`,
-          values: [name, email, age, password, createdAt, updatedAt, req.params.id]
+          values: [name, email, age, hashedPassword, createdAt, updatedAt, req.user.id]
         }       
         try {
-          const {rowCount}  = await client.query( //query to check if user exists
-            'SELECT * FROM users WHERE id=$1', [req.params.id],
-          )
-
-          if (rowCount === 0) { //If not record is found
-            return reply.status(404).send({ error: 'User not found'});
-          }
-
           const { rows } = await client.query(query);
           reply.code(204);
           return rows;
@@ -272,18 +248,10 @@ async function routes (fastify, options) {
         }
       });
       
-      fastify.delete('/users/:id', async (req, reply) => {
+      fastify.delete('/users/me', {onRequest: [fastify.authenticate]}, async (req, reply) => {
         const client = await fastify.pg.connect();
         try {
-          const {rowCount}  = await client.query( //query to check if user exists
-            'SELECT * FROM users WHERE id=$1', [req.params.id],
-          )
-
-          if (rowCount === 0) { //If not record is found
-            return reply.status(404).send({ error: 'User not found'});
-          }
-
-          const { rows } = await client.query(`DELETE FROM users WHERE id= $1 RETURNING *`, [req.params.id]);
+          const { rows } = await client.query(`DELETE FROM users WHERE id= $1 RETURNING *`, [req.user.id]); //use the attached user id on req auth
           reply.code(204);
           return rows;          
         } catch (error) {
