@@ -1,4 +1,5 @@
 import { Sequelize, Model, DataTypes  } from 'sequelize';
+import { v4 as uuidv4 } from 'uuid';
 
 // const sequelize = new Sequelize('postgres://user:pass@example.com:5432/dbname')
 
@@ -26,8 +27,10 @@ const User = sequelize.define(
    {
      // Model attributes are defined here
      id: {
-      type: DataTypes.INTEGER,
-      autoIncrement: true,
+      type: DataTypes.UUID,
+      // type: DataTypes.BIGINT,
+      defaultValue: DataTypes.UUIDV4,
+      // autoIncrement: true,
       primaryKey: true
      },
      name: {
@@ -71,10 +74,7 @@ const User = sequelize.define(
       }
      },
      tokens: {
-      // type: DataTypes.ARRAY(DataTypes.JSONB),
       type: DataTypes.JSONB      
-      // allowNull: false,
-      // defaultValue: []
      },
    },
    {
@@ -86,6 +86,13 @@ const User = sequelize.define(
   'task',
   {
     // Model attributes are defined here
+    id: {
+      type: DataTypes.UUID,
+      // type: DataTypes.BIGINT,      
+      // autoIncrement: true,
+      defaultValue: uuidv4(),
+      primaryKey: true
+     },
     description: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -101,12 +108,19 @@ const User = sequelize.define(
   },
 );
 
+// User.hasMany(Task, {
+//   foreignKey: 'userId',
+//   onDelete: 'CASCADE',
+//   onUpdate: 'CASCADE',  
+// });
+// Task.belongsTo(User);
+
  (async () => {
   await sequelize.sync({force: true});
   // Code here
   const user = await User.create({ name: 'Laura', email: 'JOHN@dsds.com', age: 26, password: 'dskji23jkj' });
 
-  const task = await Task.create({ description: 'hoola', completed: true });
+  const task = await Task.create({ description: 'hoola', completed: true, userId: user.id });
   // Jane exists in the database now!
   console.log(user instanceof User); // true
 })();

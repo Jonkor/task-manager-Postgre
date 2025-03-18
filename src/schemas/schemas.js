@@ -1,33 +1,35 @@
 export const getUserSchema = {
-    response: {
-      200: {
-        type: 'array',
-        properties: {
-          id: {type: 'integer'},
-          name: {type: 'string',},
-          email: {type: 'string', format: 'email'},
-          age: {type: 'integer'},
-          createdAt: {type: 'string', format: 'date-time'},
-          updatedAt: {type: 'string', format: 'date-time'}            
-        }
-      }
-    }
-  }
-
-export const postUserSchema = {
-    body: {
-      type: 'object',
+  response: {
+    200: {
+      type: 'array',
       properties: {
-        id: {type: 'integer',},
+        id: {type: 'string', format: 'uuid'},
+        // id: {type: 'integer'},
         name: {type: 'string',},
         email: {type: 'string', format: 'email'},
         age: {type: 'integer'},
         createdAt: {type: 'string', format: 'date-time'},
-        updatedAt: {type: 'string', format: 'date-time'}
-      },
-      required: ["id", "name", "email", "age"]
+        updatedAt: {type: 'string', format: 'date-time'}            
+      }
     }
   }
+}
+
+export const postUserSchema = {
+  body: {
+    type: 'object',
+    properties: {
+      id: {type: 'string', format: 'uuid'},
+      // id: {type: 'integer',},
+      name: {type: 'string',},
+      email: {type: 'string', format: 'email'},
+      age: {type: 'integer'},
+      createdAt: {type: 'string', format: 'date-time'},
+      updatedAt: {type: 'string', format: 'date-time'}
+    },
+    required: ["name", "email", "age"]
+  }
+}
 
 export const loginUserSchema = {
     body: {
@@ -41,30 +43,32 @@ export const loginUserSchema = {
 }
 
 export const getTaskSchema = {
-    response: {
-      200: {
-        type: 'array',
-        properties: {
-          id: {type: 'integer',},
-          description: {type: 'string',},
-          completed: {type: 'boolean',},
-          createdAt: {type: 'string', format: 'date-time'},
-          updatedAt: {type: 'string', format: 'date-time'}            
-        }
+  response: {
+    200: {
+      type: 'array',
+      properties: {
+        id: {type: 'string', format: 'uuid'},
+        // id: {type: 'integer',},
+        description: {type: 'string',},
+        completed: {type: 'boolean',},
+        createdAt: {type: 'string', format: 'date-time'},
+        updatedAt: {type: 'string', format: 'date-time'}            
       }
     }
   }
+}
 
 export const postTaskSchema = {
-    body: {
-      type: 'object',
-      properties: {
-        id: {type: 'integer'},
-        description: {type: 'string',},
-        completed: {type: 'boolean', nullable: true, default: false},
-        createdAt: {type: 'string', format: 'date-time'},
-        updatedAt: {type: 'string', format: 'date-time'}           
-      },
-      required: ["id", "description", "completed"]
-    }
+  body: {
+    type: 'object',
+    properties: {
+      id: {type: 'string', format: 'uuid'},
+      // id: {type: 'integer'},        
+      description: {type: 'string',},
+      completed: {type: 'boolean', nullable: true, default: false},
+      createdAt: {type: 'string', format: 'date-time'},
+      updatedAt: {type: 'string', format: 'date-time'}           
+    },
+    required: ["description", "completed"]
   }
+}

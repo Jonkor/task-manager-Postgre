@@ -2,6 +2,8 @@
 
 import { format } from "sequelize/lib/utils";
 import { getUserSchema, postUserSchema, loginUserSchema, getTaskSchema, postTaskSchema} from "../schemas/schemas.js";
+import { v4 as uuidv4 } from 'uuid';
+
 
 /**
  * Encapsulates the routes
@@ -28,6 +30,8 @@ async function routes (fastify, options) {
           throw new Error('No token found')
         }
         const tokenString = token[0].replace(/^Bearer\s+/i, "").trim(); //removes bearer so only the string is left
+        console.log(decoded);
+        
                 
         const { rows } = await client.query( //this get all tokens from user and search if both id and jwt exists
           `SELECT * FROM users 
@@ -93,20 +97,21 @@ async function routes (fastify, options) {
 
       await fastify.post('/users/', {schema: postUserSchema}, async (req, reply) => {
         const client = await fastify.pg.connect();
-        const {id, name, email, age, password} = req.body;
-        // const id = uuidv4()       
+        const {name, email, age, password} = req.body;
+        const id = uuidv4();
+        // const randomNumber = Math.floor(Math.random() * 5000);       
         const done = false;
         const hashedPassword = await fastify.bcrypt.hash(password); //hash password       
         const createdAt = new Date().toISOString();
         const updatedAt = new Date().toISOString();
 
-        const token = await fastify.jwt.sign({id: id.toString()}, {expiresIn: '7d'}, 'wowsosecret', ); //generates json web token string
-        // let userTokens = [{token}]; //assigns token to users tokens string array
+        // const token = await fastify.jwt.sign({randomNumber: randomNumber.toString()}, {expiresIn: '7d'}, 'wowsosecret', );  //generates json web token string using a random number      
+        const token = await fastify.jwt.sign({id: id.toString()}, {expiresIn: '7d'}, 'wowsosecret', ); //generates json web token string using uuid for randomness 
         const objectToken = {token}; //assigns token string as a object for Tokens JsonB field
 
         try {
           const { rows } = await client.query(
-            'INSERT INTO users(ID,NAME,EMAIL,AGE,PASSWORD,TOKENS,"createdAt","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING ID, NAME, EMAIL, AGE', [id,name,email,age,hashedPassword,objectToken,createdAt,updatedAt],
+            'INSERT INTO users(ID,NAME,EMAIL,AGE,PASSWORD,TOKENS,"createdAt","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING NAME, EMAIL, AGE', [id,name,email,age,hashedPassword,objectToken,createdAt,updatedAt],
           )
           // Note: avoid doing expensive computation here, this will block releasing the client                    
           reply.code(201);
@@ -121,7 +126,8 @@ async function routes (fastify, options) {
       
       await fastify.post('/users/login', loginUserSchema, async (req, reply) => {
         const {email, password} = req.body;
-        const client = await fastify.pg.connect();        
+        const client = await fastify.pg.connect();
+        // const randomNumber = Math.floor(Math.random() * 5000); // for jwt       
         try {
           const { rows } = await client.query(
             `SELECT * FROM users WHERE email=$1`, [email]
@@ -137,14 +143,12 @@ async function routes (fastify, options) {
           if (!isMatch) {
             return reply.status(401).send({ error: 'Invalid credentials' });
           }
-
-          const token = await fastify.jwt.sign({id: user.id.toString()}, {expiresIn: '7d'}, 'wowsosecret', ); //generates json web token
           
-          // user.tokens = user.tokens.concat({token});//assigns token to users tokens string array
+          // const token = await fastify.jwt.sign({randomNumber: randomNumber.toString()}, {expiresIn: '7d'}, 'wowsosecret', );  //generates json web token string using a random number      
+          const token = await fastify.jwt.sign({id: user.id.toString()}, {expiresIn: '7d'}, 'wowsosecret', ); //generates json web token string using uuid for randomness 
           
+          // user.tokens = user.tokens.concat({token});//assigns token to users tokens string array 
           user.tokens['token'+(Object.keys(user.tokens).length+1).toString()] = token; //generates dynamic keys based on the tokens we have and then we store the value token
-
-          // user.tokens['token'] = token; //updates the token
           
           const updatedAt = new Date().toISOString();  
 
@@ -167,9 +171,7 @@ async function routes (fastify, options) {
 
       await fastify.post('/users/logout', {onRequest: [fastify.authenticate]}, async (req, reply) => {
         const client = await fastify.pg.connect();
-        try {
-          console.log(req.user.token);
-          
+        try {          
           const userId = req.user.id;
           const token = req.user.token[0].replace(/^Bearer\s+/i, "").trim();  
           
@@ -234,7 +236,7 @@ async function routes (fastify, options) {
         const query = {
           text: `UPDATE users SET 
           name= COALESCE($1, name), email= COALESCE($2, email), age= COALESCE($3, age), password= COALESCE($4, password), "createdAt"= COALESCE($5, "createdAt"), "updatedAt"= COALESCE($6, "updatedAt") 
-          WHERE id=$7 RETURNING *`,
+          WHERE id=$7 RETURNING name,email`,
           values: [name, email, age, hashedPassword, createdAt, updatedAt, req.user.id]
         }       
         try {
@@ -248,10 +250,10 @@ async function routes (fastify, options) {
         }
       });
       
-      fastify.delete('/users/me', {onRequest: [fastify.authenticate]}, async (req, reply) => {
+      await fastify.delete('/users/me', {onRequest: [fastify.authenticate]}, async (req, reply) => {
         const client = await fastify.pg.connect();
         try {
-          const { rows } = await client.query(`DELETE FROM users WHERE id= $1 RETURNING *`, [req.user.id]); //use the attached user id on req auth
+          const { rows } = await client.query(`DELETE FROM users WHERE id= $1 RETURNING name,email`, [req.user.id]); //use the attached user id on req auth
           reply.code(204);
           return rows;          
         } catch (error) {
@@ -291,14 +293,15 @@ async function routes (fastify, options) {
         }
       });
 
-      fastify.post('/tasks/', {schema: postTaskSchema}, async (req, reply) => {
+      await fastify.post('/tasks/', {schema: postTaskSchema}, async (req, reply) => {
         const client = await fastify.pg.connect();
-        const {id, description, completed} = req.body;
+        const {description, completed} = req.body;
+        const id = uuidv4();       
         const createdAt = new Date().toISOString();
         const updatedAt = new Date().toISOString();        
         try{
           const { rows } = await client.query(
-            'INSERT INTO tasks(ID,DESCRIPTION,COMPLETED,"createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5) RETURNING *', [id,description,completed,createdAt,updatedAt],            
+            'INSERT INTO tasks(ID,DESCRIPTION,COMPLETED,"createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5) RETURNING DESCRIPTION,COMPLETED', [id,description,completed,createdAt,updatedAt],            
           )
           reply.code(201);
           return rows;
