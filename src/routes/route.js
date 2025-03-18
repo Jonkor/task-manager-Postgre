@@ -293,15 +293,16 @@ async function routes (fastify, options) {
         }
       });
 
-      await fastify.post('/tasks/', {schema: postTaskSchema}, async (req, reply) => {
+      await fastify.post('/tasks/', {schema: postTaskSchema, onRequest: [fastify.authenticate]}, async (req, reply) => {
         const client = await fastify.pg.connect();
         const {description, completed} = req.body;
-        const id = uuidv4();       
+        const id = uuidv4();
+        const userId = req.user.id;               
         const createdAt = new Date().toISOString();
         const updatedAt = new Date().toISOString();        
         try{
           const { rows } = await client.query(
-            'INSERT INTO tasks(ID,DESCRIPTION,COMPLETED,"createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5) RETURNING DESCRIPTION,COMPLETED', [id,description,completed,createdAt,updatedAt],            
+            'INSERT INTO tasks(ID,DESCRIPTION,COMPLETED,"createdAt", "updatedAt", "userId") VALUES ($1,$2,$3,$4,$5,$6) RETURNING DESCRIPTION,COMPLETED', [id,description,completed,createdAt,updatedAt,userId],            
           )
           reply.code(201);
           return rows;

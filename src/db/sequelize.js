@@ -108,12 +108,12 @@ const User = sequelize.define(
   },
 );
 
-// User.hasMany(Task, {
-//   foreignKey: 'userId',
-//   onDelete: 'CASCADE',
-//   onUpdate: 'CASCADE',  
-// });
-// Task.belongsTo(User);
+User.hasMany(Task, {
+  foreignKey: 'userId',
+  onDelete: 'CASCADE',
+  onUpdate: 'CASCADE',  
+});
+Task.belongsTo(User);
 
  (async () => {
   await sequelize.sync({force: true});
