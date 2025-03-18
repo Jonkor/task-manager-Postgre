@@ -72,3 +72,32 @@ export const postTaskSchema = {
     required: ["description", "completed"]
   }
 }
+
+export const patchTaskSchema = {
+  body: {
+    type: 'object',
+    properties: {
+      id: {type: 'string', format: 'uuid'},
+      // id: {type: 'integer'},        
+      description: {type: 'string',},
+      completed: {type: 'boolean', nullable: true, default: false},
+      createdAt: {type: 'string', format: 'date-time'},
+      updatedAt: {type: 'string', format: 'date-time'}           
+    },
+  },
+  params: {
+    type: 'object',
+    properties: {
+      id: { type: 'string', format: 'uuid' }
+    }
+  }  
+}
+
+export const deleteTaskSchema = {
+  params: {
+    type: 'object',
+    properties: {
+        id: {type: 'string', format: 'uuid'}
+    }
+  }  
+}

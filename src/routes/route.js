@@ -1,7 +1,7 @@
 // route.js
 
 import { format } from "sequelize/lib/utils";
-import { getUserSchema, postUserSchema, loginUserSchema, getTaskSchema, postTaskSchema} from "../schemas/schemas.js";
+import { getUserSchema, postUserSchema, loginUserSchema, getTaskSchema, postTaskSchema, patchTaskSchema, deleteTaskSchema} from "../schemas/schemas.js";
 import { v4 as uuidv4 } from 'uuid';
 
 
@@ -30,7 +30,7 @@ async function routes (fastify, options) {
           throw new Error('No token found')
         }
         const tokenString = token[0].replace(/^Bearer\s+/i, "").trim(); //removes bearer so only the string is left
-        console.log(decoded);
+        // console.log(decoded);
         
                 
         const { rows } = await client.query( //this get all tokens from user and search if both id and jwt exists
@@ -95,105 +95,105 @@ async function routes (fastify, options) {
       }
     });
 
-      await fastify.post('/users/', {schema: postUserSchema}, async (req, reply) => {
-        const client = await fastify.pg.connect();
-        const {name, email, age, password} = req.body;
-        const id = uuidv4();
-        // const randomNumber = Math.floor(Math.random() * 5000);       
-        const done = false;
-        const hashedPassword = await fastify.bcrypt.hash(password); //hash password       
-        const createdAt = new Date().toISOString();
-        const updatedAt = new Date().toISOString();
+    await fastify.post('/users/', {schema: postUserSchema}, async (req, reply) => {
+      const client = await fastify.pg.connect();
+      const {name, email, age, password} = req.body;
+      const id = uuidv4();
+      // const randomNumber = Math.floor(Math.random() * 5000);       
+      const done = false;
+      const hashedPassword = await fastify.bcrypt.hash(password); //hash password       
+      const createdAt = new Date().toISOString();
+      const updatedAt = new Date().toISOString();
 
-        // const token = await fastify.jwt.sign({randomNumber: randomNumber.toString()}, {expiresIn: '7d'}, 'wowsosecret', );  //generates json web token string using a random number      
-        const token = await fastify.jwt.sign({id: id.toString()}, {expiresIn: '7d'}, 'wowsosecret', ); //generates json web token string using uuid for randomness 
-        const objectToken = {token}; //assigns token string as a object for Tokens JsonB field
+      // const token = await fastify.jwt.sign({randomNumber: randomNumber.toString()}, {expiresIn: '7d'}, 'wowsosecret', );  //generates json web token string using a random number      
+      const token = await fastify.jwt.sign({id: id.toString()}, {expiresIn: '7d'}, 'wowsosecret', ); //generates json web token string using uuid for randomness 
+      const objectToken = {token}; //assigns token string as a object for Tokens JsonB field
 
-        try {
-          const { rows } = await client.query(
-            'INSERT INTO users(ID,NAME,EMAIL,AGE,PASSWORD,TOKENS,"createdAt","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING NAME, EMAIL, AGE', [id,name,email,age,hashedPassword,objectToken,createdAt,updatedAt],
-          )
-          // Note: avoid doing expensive computation here, this will block releasing the client                    
-          reply.code(201);
-          return rows;
-        } catch (error){
-          throw new Error(error);
-        }finally {
-          // Release the client immediately after query resolves, or upon error
-          client.release();
-        }
-      }); 
+      try {
+        const { rows } = await client.query(
+          'INSERT INTO users(ID,NAME,EMAIL,AGE,PASSWORD,TOKENS,"createdAt","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING NAME, EMAIL, AGE', [id,name,email,age,hashedPassword,objectToken,createdAt,updatedAt],
+        )
+        // Note: avoid doing expensive computation here, this will block releasing the client                    
+        reply.code(201);
+        return rows;
+      } catch (error){
+        throw new Error(error);
+      }finally {
+        // Release the client immediately after query resolves, or upon error
+        client.release();
+      }
+    }); 
       
-      await fastify.post('/users/login', loginUserSchema, async (req, reply) => {
-        const {email, password} = req.body;
-        const client = await fastify.pg.connect();
-        // const randomNumber = Math.floor(Math.random() * 5000); // for jwt       
-        try {
-          const { rows } = await client.query(
-            `SELECT * FROM users WHERE email=$1`, [email]
-          );
+    await fastify.post('/users/login', loginUserSchema, async (req, reply) => {
+      const {email, password} = req.body;
+      const client = await fastify.pg.connect();
+      // const randomNumber = Math.floor(Math.random() * 5000); // for jwt       
+      try {
+        const { rows } = await client.query(
+          `SELECT * FROM users WHERE email=$1`, [email]
+        );
 
-          if (rows.length === 0){
-            return reply.status(400).send({ error: 'User not found' });
-          }
-
-          const user = rows[0];
-          const isMatch = await fastify.bcrypt.compare(password, user.password);
-
-          if (!isMatch) {
-            return reply.status(401).send({ error: 'Invalid credentials' });
-          }
-          
-          // const token = await fastify.jwt.sign({randomNumber: randomNumber.toString()}, {expiresIn: '7d'}, 'wowsosecret', );  //generates json web token string using a random number      
-          const token = await fastify.jwt.sign({id: user.id.toString()}, {expiresIn: '7d'}, 'wowsosecret', ); //generates json web token string using uuid for randomness 
-          
-          // user.tokens = user.tokens.concat({token});//assigns token to users tokens string array 
-          user.tokens['token'+(Object.keys(user.tokens).length+1).toString()] = token; //generates dynamic keys based on the tokens we have and then we store the value token
-          
-          const updatedAt = new Date().toISOString();  
-
-          const query = {
-            text: `UPDATE users SET
-            tokens= COALESCE($1, tokens), "updatedAt"= COALESCE($2, "updatedAt")
-            WHERE id=$3 RETURNING *`,
-            values: [user.tokens, updatedAt, user.id]
-          }
-
-          const { rowUpdate } = await client.query(query);
-          await reply.send({ message: 'Login successful', user, token });
-          return rowUpdate;
-        } catch (error) {
-          throw new Error(error);
-        } finally {
-          client.release();
+        if (rows.length === 0){
+          return reply.status(400).send({ error: 'User not found' });
         }
+
+        const user = rows[0];
+        const isMatch = await fastify.bcrypt.compare(password, user.password);
+
+        if (!isMatch) {
+          return reply.status(401).send({ error: 'Invalid credentials' });
+        }
+        
+        // const token = await fastify.jwt.sign({randomNumber: randomNumber.toString()}, {expiresIn: '7d'}, 'wowsosecret', );  //generates json web token string using a random number      
+        const token = await fastify.jwt.sign({id: user.id.toString()}, {expiresIn: '7d'}, 'wowsosecret', ); //generates json web token string using uuid for randomness 
+        
+        // user.tokens = user.tokens.concat({token});//assigns token to users tokens string array 
+        user.tokens['token'+(Object.keys(user.tokens).length+1).toString()] = token; //generates dynamic keys based on the tokens we have and then we store the value token
+        
+        const updatedAt = new Date().toISOString();  
+
+        const query = {
+          text: `UPDATE users SET
+          tokens= COALESCE($1, tokens), "updatedAt"= COALESCE($2, "updatedAt")
+          WHERE id=$3 RETURNING *`,
+          values: [user.tokens, updatedAt, user.id]
+        }
+
+        const { rowUpdate } = await client.query(query);
+        await reply.send({ message: 'Login successful', user, token });
+        return rowUpdate;
+      } catch (error) {
+        throw new Error(error);
+      } finally {
+        client.release();
+      }
       });
 
-      await fastify.post('/users/logout', {onRequest: [fastify.authenticate]}, async (req, reply) => {
-        const client = await fastify.pg.connect();
-        try {          
-          const userId = req.user.id;
-          const token = req.user.token[0].replace(/^Bearer\s+/i, "").trim();  
-          
-          const rows = await client.query(
-            `UPDATE users 
-            SET tokens = tokens - (
-            SELECT key FROM jsonb_each_text(tokens) 
-            WHERE value = $1
-            ) 
-            WHERE id = $2`,
-            [token, userId]
-          );
+    await fastify.post('/users/logout', {onRequest: [fastify.authenticate]}, async (req, reply) => {
+      const client = await fastify.pg.connect();
+      try {          
+        const userId = req.user.id;
+        const token = req.user.token[0].replace(/^Bearer\s+/i, "").trim();  
+        
+        const rows = await client.query(
+          `UPDATE users 
+          SET tokens = tokens - (
+          SELECT key FROM jsonb_each_text(tokens) 
+          WHERE value = $1
+          ) 
+          WHERE id = $2`,
+          [token, userId]
+        );
 
-          req.user.token = null;
-          reply.send({ message: 'Logged out successfully' });
-          return rows;
-        } catch (error) {
-          throw new Error(error);
-        } finally {
-          client.release();
-        }
-      });
+        req.user.token = null;
+        reply.send({ message: 'Logged out successfully' });
+        return rows;
+      } catch (error) {
+        throw new Error(error);
+      } finally {
+        client.release();
+      }
+    });
 
       await fastify.post('/users/logoutAll', {onRequest: [fastify.authenticate]}, async (req, reply) => {
         const client = await fastify.pg.connect();
@@ -217,161 +217,172 @@ async function routes (fastify, options) {
         }
       });
 
-      await fastify.patch('/users/me', {onRequest: [fastify.authenticate]}, async (req, reply) => {
-        const client = await fastify.pg.connect();
+    await fastify.patch('/users/me', {onRequest: [fastify.authenticate]}, async (req, reply) => {
+      const client = await fastify.pg.connect();
 
-        const updates = Object.keys(req.body); //array of strings
-        const allowedUpdates = ["name", "email", "age", "password"]; //fields allowed to update
-        const isValidOperation = updates.every((update) => allowedUpdates.includes(update));
-        
-        if (!isValidOperation) { 
-          return reply.status(400).send({ error: 'Invalid update'});
-        }
-        
-        const {name, email, age, password} = req.body;
-        const hashedPassword = await fastify.bcrypt.hash(password); //hash password 
-        const createdAt = new Date().toISOString();
-        const updatedAt = new Date().toISOString(); 
-
-        const query = {
-          text: `UPDATE users SET 
-          name= COALESCE($1, name), email= COALESCE($2, email), age= COALESCE($3, age), password= COALESCE($4, password), "createdAt"= COALESCE($5, "createdAt"), "updatedAt"= COALESCE($6, "updatedAt") 
-          WHERE id=$7 RETURNING name,email`,
-          values: [name, email, age, hashedPassword, createdAt, updatedAt, req.user.id]
-        }       
-        try {
-          const { rows } = await client.query(query);
-          reply.code(204);
-          return rows;
-        }catch(error){
-          throw new Error(error);
-        }finally{
-          client.release();
-        }
-      });
+      const updates = Object.keys(req.body); //array of strings
+      const allowedUpdates = ["name", "email", "age", "password"]; //fields allowed to update
+      const isValidOperation = updates.every((update) => allowedUpdates.includes(update));
       
-      await fastify.delete('/users/me', {onRequest: [fastify.authenticate]}, async (req, reply) => {
-        const client = await fastify.pg.connect();
-        try {
-          const { rows } = await client.query(`DELETE FROM users WHERE id= $1 RETURNING name,email`, [req.user.id]); //use the attached user id on req auth
-          reply.code(204);
-          return rows;          
-        } catch (error) {
-          throw new Error(error);
-        }finally {
-          client.release();
-        }
-      });
+      if (!isValidOperation) { 
+        return reply.status(400).send({ error: 'Invalid update'});
+      }
+      
+      const {name, email, age, password} = req.body;
+      const hashedPassword = await fastify.bcrypt.hash(password); //hash password 
+      const createdAt = new Date().toISOString();
+      const updatedAt = new Date().toISOString(); 
 
-      fastify.get('/tasks/', {schema: getTaskSchema}, async (req, reply) => {
-        const client = await fastify.pg.connect();
-        try{
-          const { rows } = await client.query(
-            'SELECT * FROM tasks',
-          )
-          reply.code(200);
-          return rows; 
-        } catch (error){
-          throw new Error(error);
-        } finally {
-          client.release();
-        }
-      });
+      const query = {
+        text: `UPDATE users SET 
+        name= COALESCE($1, name), email= COALESCE($2, email), age= COALESCE($3, age), password= COALESCE($4, password), "createdAt"= COALESCE($5, "createdAt"), "updatedAt"= COALESCE($6, "updatedAt") 
+        WHERE id=$7 RETURNING name,email`,
+        values: [name, email, age, hashedPassword, createdAt, updatedAt, req.user.id]
+      }       
+      try {
+        const { rows } = await client.query(query);
+        reply.code(204);
+        return rows;
+      }catch(error){
+        throw new Error(error);
+      }finally{
+        client.release();
+      }
+    });
+      
+    await fastify.delete('/users/me', {onRequest: [fastify.authenticate]}, async (req, reply) => {
+      const client = await fastify.pg.connect();
+      try {
+        const { rows } = await client.query(`DELETE FROM users WHERE id= $1 RETURNING name,email`, [req.user.id]); //use the attached user id on req auth
+        reply.code(204);
+        return rows;          
+      } catch (error) {
+        throw new Error(error);
+      }finally {
+        client.release();
+      }
+    });
 
-      fastify.get('/tasks/:id', {schema: getTaskSchema}, async (req, reply) => {
-        const client = await fastify.pg.connect();
-        try{
-          const { rows } = await client.query(
-            'SELECT * FROM tasks WHERE id=$1', [req.params.id],
-          )
-          reply.code(200);
-          return rows;
-        }catch (error){
-          throw new Error(error);          
-        }finally{
-          client.release();
-        }
-      });
+    await fastify.get('/tasks/', {schema: getTaskSchema, onRequest: [fastify.authenticate]}, async (req, reply) => {
+      const client = await fastify.pg.connect();
+      const userId = req.user.id;
+      try{
+        const { rows } = await client.query(
+          'SELECT * FROM tasks WHERE "userId"=$1', [userId]
+        )
 
-      await fastify.post('/tasks/', {schema: postTaskSchema, onRequest: [fastify.authenticate]}, async (req, reply) => {
-        const client = await fastify.pg.connect();
-        const {description, completed} = req.body;
-        const id = uuidv4();
-        const userId = req.user.id;               
-        const createdAt = new Date().toISOString();
-        const updatedAt = new Date().toISOString();        
-        try{
-          const { rows } = await client.query(
-            'INSERT INTO tasks(ID,DESCRIPTION,COMPLETED,"createdAt", "updatedAt", "userId") VALUES ($1,$2,$3,$4,$5,$6) RETURNING DESCRIPTION,COMPLETED', [id,description,completed,createdAt,updatedAt,userId],            
-          )
-          reply.code(201);
-          return rows;
-        } catch (error) {
-          throw new Error(error);
-        } finally {
-          client.release();
+        if ( rows.length === 0) {
+          return reply.status(404).send({ error: 'You dont have tasks'});
         }
 
-      });
+        reply.code(200);
+        return rows; 
+      } catch (error){
+        throw new Error(error);
+      } finally {
+        client.release();
+      }
+    });
 
-      fastify.patch('/tasks/:id', async (req, reply) => {
-        const client = await fastify.pg.connect();
+    await fastify.get('/tasks/:id', {schema: getTaskSchema, onRequest: [fastify.authenticate]}, async (req, reply) => {
+      const client = await fastify.pg.connect();
+      const userId = req.user.id;
+      try{
+        const { rows } = await client.query(
+          'SELECT * FROM tasks WHERE id=$1 AND "userId"=$2', [req.params.id, userId],
+        )
 
-        const updates = Object.keys(req.body); //array of strings
-        const allowedUpdates = ["description", "completed"]; //fields allowed to update
-        const isValidOperation = updates.every((update) => allowedUpdates.includes(update));
+        if ( rows.length === 0) {
+          return reply.status(404).send({ error: 'Task not found'});
+        }
+
+        reply.code(200);
+        return rows;
+      }catch (error){
+        throw new Error(error);          
+      }finally{
+        client.release();
+      }
+    });
+
+    await fastify.post('/tasks/', {schema: postTaskSchema, onRequest: [fastify.authenticate]}, async (req, reply) => {
+      const client = await fastify.pg.connect();
+      const {description, completed} = req.body;
+      const id = uuidv4();
+      const userId = req.user.id;               
+      const createdAt = new Date().toISOString();
+      const updatedAt = new Date().toISOString();        
+      try{
+        const { rows } = await client.query(
+          'INSERT INTO tasks(ID,DESCRIPTION,COMPLETED,"createdAt", "updatedAt", "userId") VALUES ($1,$2,$3,$4,$5,$6) RETURNING DESCRIPTION,COMPLETED', [id,description,completed,createdAt,updatedAt,userId],            
+        )
+        reply.code(201);
+        return rows;
+      } catch (error) {
+        throw new Error(error);
+      } finally {
+        client.release();
+      }
+
+    });
+
+    await fastify.patch('/tasks/:id', {schema: patchTaskSchema, onRequest: [fastify.authenticate]}, async (req, reply) => {
+      const client = await fastify.pg.connect();
+      const userId = req.user.id;  
+      const updates = Object.keys(req.body); //array of strings
+      const allowedUpdates = ["description", "completed"]; //fields allowed to update
+      const isValidOperation = updates.every((update) => allowedUpdates.includes(update));
+      
+      if (!isValidOperation) { 
+        return reply.status(400).send({ error: 'Invalid update'});
+      }
+
+      const {description, completed} = req.body;
+      const createdAt = new Date().toISOString();
+      const updatedAt = new Date().toISOString(); 
+      const query = {
+        text: `UPDATE tasks SET 
+        description= COALESCE($1, description), completed= COALESCE($2, completed), "createdAt"= COALESCE($3, "createdAt"), "updatedAt"= COALESCE($4, "updatedAt") 
+        WHERE id=$5 RETURNING *`,
+        values: [description, completed, createdAt, updatedAt, req.params.id]
+      }       
+      try {
+        const {rowCount}  = await client.query(
+          'SELECT * FROM tasks WHERE id=$1 AND "userId"=$2', [req.params.id, userId],
+        )
+
+        if (rowCount === 0) { //If not record is found
+          return reply.status(404).send({ error: 'Task not found'});
+        }
+
+        const { rows } = await client.query(query);
+        reply.code(204);
+        return rows;
+      }catch(error){
+        throw new Error(error);
+      }finally{
+        client.release();
+      }
+    });
+
+    await fastify.delete('/tasks/:id', {schema: deleteTaskSchema, onRequest: [fastify.authenticate]}, async (req, reply) => {
+      const client = await fastify.pg.connect();
+      const userId = req.user.id;
+      try {         
+        const { rows } = await client.query(`DELETE FROM tasks WHERE id=$1 AND "userId"=$2 RETURNING *`, [req.params.id, userId]);
+
+        if (rows.length === 0) { //If not record is found
+          return reply.status(404).send({ error: 'No task found'});
+        } 
         
-        if (!isValidOperation) { 
-          return reply.status(400).send({ error: 'Invalid update'});
-        }
-
-        const {description, completed} = req.body;
-        const createdAt = new Date().toISOString();
-        const updatedAt = new Date().toISOString(); 
-        const query = {
-          text: `UPDATE tasks SET 
-          description= COALESCE($1, description), completed= COALESCE($2, completed), "createdAt"= COALESCE($3, "createdAt"), "updatedAt"= COALESCE($4, "updatedAt") 
-          WHERE id=$5 RETURNING *`,
-          values: [description, completed, createdAt, updatedAt, req.params.id]
-        }       
-        try {
-          const {rowCount}  = await client.query(
-            'SELECT * FROM tasks WHERE id=$1', [req.params.id],
-          )
-
-          if (rowCount === 0) { //If not record is found
-            return reply.status(404).send({ error: 'Task not found'});
-          }
-
-          const { rows } = await client.query(query);
-          reply.code(204);
-          return rows;
-        }catch(error){
-          throw new Error(error);
-        }finally{
-          client.release();
-        }
-      });
-
-      fastify.delete('/tasks/:id', async (req, reply) => {
-        const client = await fastify.pg.connect();
-        try {
-          const {rowCount}  = await client.query(
-            'SELECT * FROM tasks WHERE id=$1', [req.params.id],
-          )
-
-          if (rowCount === 0) { //If not record is found
-            return reply.status(404).send({ error: 'Task not found'});
-          }          
-          const { rows } = await client.query(`DELETE FROM tasks WHERE id= $1 RETURNING *`, [req.params.id]);
-          reply.code(204);
-          return rows;
-        } catch (error) {
-          throw new Error(error);
-        } finally {
-          client.release();
-        }
-      });
+        reply.code(204);
+        return rows;
+      } catch (error) {
+        throw new Error(error);
+      } finally {
+        client.release();
+      }
+    });
   }
   
   //ESM
