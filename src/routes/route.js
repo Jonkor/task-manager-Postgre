@@ -219,7 +219,7 @@ async function routes (fastify, options) {
 
     await fastify.patch('/users/me', {onRequest: [fastify.authenticate]}, async (req, reply) => {
       const client = await fastify.pg.connect();
-
+      
       const updates = Object.keys(req.body); //array of strings
       const allowedUpdates = ["name", "email", "age", "password"]; //fields allowed to update
       const isValidOperation = updates.every((update) => allowedUpdates.includes(update));
@@ -229,17 +229,21 @@ async function routes (fastify, options) {
       }
       
       const {name, email, age, password} = req.body;
-      const hashedPassword = await fastify.bcrypt.hash(password); //hash password 
-      const createdAt = new Date().toISOString();
-      const updatedAt = new Date().toISOString(); 
-
-      const query = {
-        text: `UPDATE users SET 
-        name= COALESCE($1, name), email= COALESCE($2, email), age= COALESCE($3, age), password= COALESCE($4, password), "createdAt"= COALESCE($5, "createdAt"), "updatedAt"= COALESCE($6, "updatedAt") 
-        WHERE id=$7 RETURNING name,email`,
-        values: [name, email, age, hashedPassword, createdAt, updatedAt, req.user.id]
-      }       
+      
       try {
+        let hashedPassword;
+        if (password!== undefined && password !== null) { // validates if user changed his password to avoid bcrypt error
+          hashedPassword = await fastify.bcrypt.hash(password); //hash password 
+        }
+        const createdAt = new Date().toISOString();
+        const updatedAt = new Date().toISOString(); 
+
+        const query = {
+          text: `UPDATE users SET 
+          name= COALESCE($1, name), email= COALESCE($2, email), age= COALESCE($3, age), password= COALESCE($4, password), "createdAt"= COALESCE($5, "createdAt"), "updatedAt"= COALESCE($6, "updatedAt") 
+          WHERE id=$7 RETURNING name,email`,
+          values: [name, email, age, hashedPassword, createdAt, updatedAt, req.user.id]
+        }       
         const { rows } = await client.query(query);
         reply.code(204);
         return rows;
