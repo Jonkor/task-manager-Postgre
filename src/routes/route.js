@@ -95,7 +95,7 @@ async function routes (fastify, options) {
       }
     });
 
-    await fastify.post('/users/', {schema: postUserSchema}, async (req, reply) => {
+    await fastify.post('/users', {schema: postUserSchema}, async (req, reply) => {
       const client = await fastify.pg.connect();
       const {name, email, age, password} = req.body;
       const id = uuidv4();
@@ -267,13 +267,20 @@ async function routes (fastify, options) {
       }
     });
 
-    await fastify.get('/tasks/', {schema: getTaskSchema, onRequest: [fastify.authenticate]}, async (req, reply) => {
+    await fastify.get('/tasks', {schema: getTaskSchema, onRequest: [fastify.authenticate]}, async (req, reply) => {
       const client = await fastify.pg.connect();
       const userId = req.user.id;
+
       try{
-        const { rows } = await client.query(
-          'SELECT * FROM tasks WHERE "userId"=$1', [userId]
-        )
+        let query = `SELECT * FROM tasks WHERE "userId"=$1`;
+        let values = [userId];
+
+        if (req.query.completed !== undefined) {
+          query += ` AND completed=$2`;
+          values.push(req.query.completed === 'true');
+        }
+
+        const { rows } = await client.query(query, values);
 
         if ( rows.length === 0) {
           return reply.status(404).send({ error: 'You dont have tasks'});
@@ -309,7 +316,7 @@ async function routes (fastify, options) {
       }
     });
 
-    await fastify.post('/tasks/', {schema: postTaskSchema, onRequest: [fastify.authenticate]}, async (req, reply) => {
+    await fastify.post('/tasks', {schema: postTaskSchema, onRequest: [fastify.authenticate]}, async (req, reply) => {
       const client = await fastify.pg.connect();
       const {description, completed} = req.body;
       const id = uuidv4();
