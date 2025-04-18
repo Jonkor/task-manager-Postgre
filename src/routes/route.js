@@ -269,21 +269,34 @@ async function routes (fastify, options) {
 
     await fastify.get('/tasks', {schema: getTaskSchema, onRequest: [fastify.authenticate]}, async (req, reply) => {
       const client = await fastify.pg.connect();
-      const userId = req.user.id;
+      const userId = req.user.id; //gets id from middleware
+      const limit = 2; // limit query
 
       try{
         let query = `SELECT * FROM tasks WHERE "userId"=$1`;
         let values = [userId];
-
-        if (req.query.completed !== undefined) {
-          query += ` AND completed=$2`;
+        let paramIndex = 2;
+        
+        if (req.query.completed !== undefined) { // if paramater completed is used
+          query += ` AND completed=$${paramIndex}`;
           values.push(req.query.completed === 'true');
+          paramIndex++;
         }
+
+        if (req.query.lastId !== undefined) {
+          query += ` AND id > $${paramIndex}`;
+          values.push(req.query.lastId);
+          paramIndex++;
+        }
+
+        query += ` ORDER BY id LIMIT $${paramIndex}`;
+        values.push(limit);
+        
 
         const { rows } = await client.query(query, values);
 
         if ( rows.length === 0) {
-          return reply.status(404).send({ error: 'You dont have tasks'});
+          return reply.status(404).send({ error: 'You don\'t have tasks'});
         }
 
         reply.code(200);
