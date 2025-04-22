@@ -275,7 +275,7 @@ async function routes (fastify, options) {
       try{
         let query = `SELECT * FROM tasks WHERE "userId"=$1`;
         let values = [userId];
-        let paramIndex = 2;
+        let paramIndex = 2; //dynamic track of param numbers
         
         if (req.query.completed !== undefined) { // if paramater completed is used
           query += ` AND completed=$${paramIndex}`;
@@ -283,13 +283,28 @@ async function routes (fastify, options) {
           paramIndex++;
         }
 
-        if (req.query.lastId !== undefined) {
+        if (req.query.lastId !== undefined) { //if paramater lastId is used
           query += ` AND id > $${paramIndex}`;
           values.push(req.query.lastId);
           paramIndex++;
         }
 
-        query += ` ORDER BY id LIMIT $${paramIndex}`;
+        let orderBy = ` ORDER BY "createdAt"` // default sort query
+        if (req.query.sortBy !== undefined) { //if paramater lastId is used
+          const parts = req.query.sortBy.split('_');
+          const validFields = ['createdAt', 'id', 'description', 'completed'];
+
+          const sortField = parts[0];
+          const sortOrder = parts[1] && parts[1].toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+
+          if (validFields.includes(sortField)) {
+            orderBy = ` ORDER BY "${sortField}" ${sortOrder}`;
+          }
+
+        }
+
+        query += orderBy;
+        query += ` LIMIT $${paramIndex}`; 
         values.push(limit);
         
 
